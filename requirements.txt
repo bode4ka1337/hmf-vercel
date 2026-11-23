@@ -1,0 +1,4 @@
+starlette
+requests
+beautifulsoup4
+certifi

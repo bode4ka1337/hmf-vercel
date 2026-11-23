@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1116">
+  <title>HMF — Hentai Manga Finder</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <div class="app-shell" id="app">
+    <!-- ---------------------------------------------------------------- header -->
+    <header id="topbar">
+      <div class="brand">
+        <span class="brandMark">HMF</span>
+        <!-- Legacy JS hooks: kept in the DOM, hidden on every width. -->
+        <div class="legacyHeader" aria-hidden="true">
+          <button type="button" id="backBtn" class="iconBtn hidden">←</button>
+          <div class="brandText">
+            <div class="title" id="screenTitle">HMF</div>
+            <div class="subtitle" id="screenSubtitle">Manga finder</div>
+          </div>
+        </div>
+      </div>
+
+      <nav id="tabs" aria-label="Main navigation">
+        <button type="button" class="tabBtn active" data-view="search">Search</button>
+        <button type="button" class="tabBtn" data-view="history">History</button>
+        <button type="button" class="tabBtn" data-view="settings">Settings</button>
+        <button type="button" class="tabBtn" data-view="rule34">Rule34</button>
+      </nav>
+
+      <div class="topSpacer"></div>
+
+      <div class="topActions">
+        <div id="authorChipWrap" class="chips hidden" title="Clear author filter">
+          <button type="button" id="authorChip" class="chip authorChip"></button>
+        </div>
+        <input id="titleInput" class="titleInput searchInput searchOnly" type="text" placeholder="Title or author (optional)" autocomplete="off">
+        <button type="button" id="findTopBtn" class="btn primary searchOnly">Find</button>
+        <button type="button" id="randomBtn" class="btn ghost searchOnly">Random</button>
+        <label class="hideReadToggle searchOnly" title="Hide read titles in search">
+          <input type="checkbox" id="hideReadToggle">
+          <span>Hide read</span>
+        </label>
+        <button type="button" id="filtersToggle" class="btn ghost filterToggle" aria-label="Open tag filters">
+          <span class="filterIcon" aria-hidden="true">☰</span><span>Tags &amp; filters</span><span id="filterBadge" class="filterBadge hidden">0</span>
+        </button>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- ------------------------------------------------------------ search -->
+      <section id="searchSection" class="view">
+        <div class="search-layout">
+          <aside id="filterPanel" class="filter-panel" aria-label="Search filters">
+            <div id="sheetHandle" class="sheetHandle" aria-hidden="true"></div>
+            <div class="filterTop">
+              <div class="filterHeader">
+                <span class="fieldLabel">Tags</span>
+                <span class="filterHeaderRight">
+                  <span id="selectedCount" class="muted small">0</span>
+                  <button type="button" id="filtersClose" class="iconBtn" aria-label="Close filters">×</button>
+                </span>
+              </div>
+              <div id="selectedTags" class="chips selectedChips"></div>
+
+              <div class="filterBlock">
+                <select id="tagGroup" class="select" aria-label="Tag category">
+                  <option value="">All categories</option>
+                  <option value="genre">Genres</option>
+                  <option value="theme">Themes</option>
+                  <option value="format">Format</option>
+                  <option value="content">Labels</option>
+                </select>
+                <input id="tagFilter" class="titleInput" type="text" placeholder="Tag filter…" autocomplete="off">
+                <div id="tagStatus" class="hint">Loading tags…</div>
+                <button type="button" id="tagRetry" class="btn ghost hidden">Retry</button>
+                <div id="tagList" class="tagList" role="listbox" aria-label="Tags"></div>
+              </div>
+
+              <div class="filterBlock">
+                <div class="modeRow" role="radiogroup" aria-label="Tag combination">
+                  <label class="radioLabel"><input type="radio" name="tagModeRadio" value="AND" checked> All tags (AND)</label>
+                  <label class="radioLabel"><input type="radio" name="tagModeRadio" value="OR"> Any (OR)</label>
+                </div>
+                <!-- Legacy select: kept for the original event wiring, hidden in the main layout. -->
+                <select id="tagMode" class="select modeSelectLegacy" aria-hidden="true">
+                  <option value="AND">All tags (AND)</option>
+                  <option value="OR">Any tag (OR)</option>
+                </select>
+                <div class="hint">Only titles that contain every selected tag. A site that does not know one of the tags is skipped.</div>
+              </div>
+
+              <div class="filterBlock">
+                <div class="filterHeader">
+                  <span class="fieldLabel">Excluded (<span id="excludedCount">0</span>)</span>
+                </div>
+                <div id="excludedTags" class="chips excludedChips"></div>
+                <div class="hint excludedHint">Right-click a tag to exclude it or add it to favorites.</div>
+              </div>
+
+              <div class="panelDivider"></div>
+
+              <div class="filterBlock">
+                <div class="fieldLabel">Translation language</div>
+                <button type="button" id="langToggle" class="select langToggle">All languages</button>
+                <div id="langPanel" class="langPanel hidden"></div>
+                <div class="hint">Untick all to search any language.</div>
+              </div>
+
+              <div class="filterBlock">
+                <div class="fieldLabel">Sorting</div>
+                <select id="sortSelect" class="select">
+                  <option value="relevance">Relevance</option>
+                  <option value="latest">Updated</option>
+                  <option value="follows">Popularity</option>
+                  <option value="rating">Rating</option>
+                  <option value="title">Title</option>
+                </select>
+              </div>
+
+            </div>
+            <div class="filterFooter">
+              <button type="button" id="resetFiltersBtn" class="btn ghost">Reset</button>
+              <button type="button" id="findBtn" class="btn primary">Find</button>
+            </div>
+          </aside>
+
+          <div class="results-pane">
+            <div class="subbar">
+              <span class="resultsTitle">Results</span>
+              <span id="foundCounter" class="muted small"></span>
+              <div class="topSpacer"></div>
+              <span id="status" class="inlineStatus" role="status"></span>
+              <button type="button" id="loadMoreBtn" class="btn ghost hidden">Load more</button>
+            </div>
+            <div class="results-body">
+              <div id="grid" class="grid"></div>
+              <div id="sentinel" class="sentinel" aria-hidden="true"></div>
+            </div>
+            <div class="resultsFooter">
+              <div id="statusBottom" class="status"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ------------------------------------------- details (floating window) -->
+      <section id="detailsSection" class="view hidden" role="dialog" aria-label="Title details">
+        <div id="detailsWin" class="detailsWin">
+          <div id="detailsWinBar" class="detailsWinBar">
+            <span class="winGlyph">▤</span>
+            <span id="detailsWinTitle" class="detailsWinTitle">Title details</span>
+            <button type="button" id="detailsClose" class="winClose" aria-label="Close details">×</button>
+          </div>
+          <div id="detailsBody" class="detailsBody"></div>
+        </div>
+      </section>
+
+      <!-- ------------------------------------------------------------ rule34 -->
+      <section id="rule34Section" class="view hidden">
+        <div class="pageHeader">
+          <h2 class="pageTitle">Rule34</h2>
+          <span class="muted small">Web addition — image and video search</span>
+        </div>
+        <div class="queryBar r34QueryBar">
+          <input id="r34Tags" class="titleInput" type="text" placeholder="Tags (space separated, e.g. cat_ears long_hair)" autocomplete="off">
+          <div id="r34Suggest" class="r34Suggest"></div>
+          <div class="queryRow">
+            <button type="button" id="r34FindBtn" class="btn primary">Find</button>
+            <button type="button" id="r34FiltersToggle" class="btn ghost">Filters</button>
+          </div>
+          <div id="r34FiltersPanel" class="langPanel hidden"></div>
+        </div>
+        <div id="r34Status" class="status" role="status"></div>
+        <div id="r34Grid" class="grid r34Grid"></div>
+        <div id="r34Sentinel" class="sentinel" aria-hidden="true"></div>
+        <div id="r34StatusBottom" class="status"></div>
+      </section>
+
+      <!-- ----------------------------------------------------------- history -->
+      <section id="historySection" class="view hidden">
+        <div class="pageHeader">
+          <h2 class="pageTitle">Reading history</h2>
+          <button type="button" id="historyRefresh" class="btn ghost">Refresh</button>
+        </div>
+        <div id="historyList" class="historyList"></div>
+        <div id="historyStatus" class="status" role="status"></div>
+      </section>
+
+      <!-- ---------------------------------------------------------- settings -->
+      <section id="settingsSection" class="view hidden">
+        <div class="pageHeader">
+          <h2 class="pageTitle">Settings</h2>
+          <span class="muted small">Search, sources and local data</span>
+        </div>
+        <div id="settingsBody" class="settingsList"></div>
+        <div id="settingsStatus" class="status" role="status"></div>
+      </section>
+    </main>
+
+    <div id="appStatusBar" class="appStatusBar" role="status">Ready</div>
+  </div>
+
+  <div id="filterOverlay" class="filter-overlay hidden"></div>
+  <div id="contextMenu" class="context-menu hidden" role="menu"></div>
+  <div id="toast" class="toast hidden" role="status"></div>
+
+  <!-- ------------------------------------------------------------ online reader -->
+  <div id="readerLayer" class="reader hidden" role="dialog" aria-modal="true" aria-label="Reader">
+    <div class="readerBar">
+      <button type="button" id="readerBack" class="btn ghost">← Details</button>
+      <div class="readerMeta">
+        <div id="readerTitle" class="readerTitle"></div>
+        <div id="readerCounter" class="readerCounter"></div>
+      </div>
+      <select id="readerChapter" class="select readerChapter" aria-label="Chapter"></select>
+      <label class="readerSaver"><input type="checkbox" id="readerDataSaver"> Data saver</label>
+    </div>
+    <div id="readerStage" class="readerStage">
+      <div id="readerStrip" class="readerStrip"></div>
+      <div id="readerStatus" class="status"></div>
+    </div>
+    <div class="readerNav">
+      <button type="button" id="readerPrev" class="btn ghost">‹ Previous</button>
+      <button type="button" id="readerNext" class="btn ghost">Next ›</button>
+    </div>
+  </div>
+
+  <!-- --------------------------------------------------- mandatory sign-in -->
+  <div id="loginLayer" class="login-layer" role="dialog" aria-modal="true" aria-label="Sign in">
+    <div class="login-card">
+      <div class="login-brand">HMF</div>
+      <div class="login-title">Sign in</div>
+      <div class="login-sub">This library is private. Enter your account credentials.</div>
+      <form id="loginForm">
+        <input id="loginUsername" class="titleInput" type="text" placeholder="Username" autocomplete="username" spellcheck="false">
+        <input id="loginPassword" class="titleInput" type="password" placeholder="Password" autocomplete="current-password">
+        <div id="loginError" class="login-error" role="alert"></div>
+        <button id="loginSubmit" type="submit" class="btn primary login-submit">Sign in</button>
+      </form>
+      <div class="login-note">Accounts are issued by the administrator.</div>
+    </div>
+  </div>
+
+  <!-- ----------------------------------------------------------- rule34 view -->
+  <div id="r34Viewer" class="r34Viewer hidden" aria-hidden="true">
+    <button type="button" id="r34ViewerClose" class="r34ViewerClose" aria-label="Close">×</button>
+    <div id="r34ViewerBody" class="r34ViewerBody"></div>
+    <div class="r34ViewerNav">
+      <button type="button" id="r34Prev" class="r34NavBtn" aria-label="Previous">‹</button>
+      <div id="r34ViewerIndex" class="r34ViewerIndex"></div>
+      <button type="button" id="r34Next" class="r34NavBtn" aria-label="Next">›</button>
+    </div>
+    <a id="r34ViewerOpen" class="r34ViewerOpen" href="#" target="_blank" rel="noopener">Open original</a>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
